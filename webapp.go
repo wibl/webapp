@@ -5,7 +5,10 @@ import (
 	"html/template"
 	"io/ioutil"
 	"log"
+	"net"
 	"net/http"
+	"time"
+	"github.com/go-stomp/stomp"
 )
 
 // Page as a struct with two fields representing the title and body.
@@ -68,10 +71,28 @@ func renderTemplate(wr http.ResponseWriter, tmpl string, page *Page) {
 	t.Execute(wr, page)
 }
 
+func sendMess(destination, contentType, message string) error {
+	netConn, err := net.DialTimeout("tcp", "stomp.server.com:61613", 10*time.Second)
+	if err != nil {
+		return err
+	}
+	defer netConn.Close()
+
+	stompConn, err := stomp.Connect(netConn)
+	if err != nil {
+		return err
+	}
+	defer stompConn.Disconnect()
+	
+	stompConn.Send(destination, contentType, []byte(message))
+	return nil
+}
+
 func main() {
 	http.HandleFunc("/", handler)
 	http.HandleFunc("/view/", viewHandler)
 	http.HandleFunc("/edit/", editHandler)
 	http.HandleFunc("/save/", saveHandler)
 	log.Fatal(http.ListenAndServe(":8080", nil))
+	sendMess("/queue/test-1", "text/plain", "TEST")
 }
