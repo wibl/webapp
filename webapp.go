@@ -4,11 +4,8 @@ import (
 	"fmt"
 	"html/template"
 	"io/ioutil"
-	"log"
-	"net"
 	"net/http"
-	"time"
-	"github.com/go-stomp/stomp"
+	"webapp/mq"
 )
 
 // Page as a struct with two fields representing the title and body.
@@ -71,28 +68,27 @@ func renderTemplate(wr http.ResponseWriter, tmpl string, page *Page) {
 	t.Execute(wr, page)
 }
 
-func sendMess(destination, contentType, message string) error {
-	netConn, err := net.DialTimeout("tcp", "stomp.server.com:61613", 10*time.Second)
-	if err != nil {
-		return err
-	}
-	defer netConn.Close()
+var sender mq.Sender
 
-	stompConn, err := stomp.Connect(netConn)
-	if err != nil {
-		return err
-	}
-	defer stompConn.Disconnect()
-	
-	stompConn.Send(destination, contentType, []byte(message))
-	return nil
+func sendTestMessage() error {
+	return sender.SendMessage("/queue/test-1", "TEST")
 }
 
 func main() {
-	http.HandleFunc("/", handler)
+	stompSender, err := mq.Dial("tcp", "localhost:61613")
+	if err != nil {
+		panic(err)
+	}
+
+	sender = stompSender
+
+	defer stompSender.Disconnect()
+
+	/*http.HandleFunc("/", handler)
 	http.HandleFunc("/view/", viewHandler)
 	http.HandleFunc("/edit/", editHandler)
 	http.HandleFunc("/save/", saveHandler)
-	log.Fatal(http.ListenAndServe(":8080", nil))
-	sendMess("/queue/test-1", "text/plain", "TEST")
+	log.Fatal(http.ListenAndServe(":8080", nil))*/
+
+	sendTestMessage()
 }
