@@ -11,7 +11,7 @@ type StompSender struct {
 
 //SendMessage sends a message to the STOMP server
 func (c *StompSender) SendMessage(destination, message string) error {
-	return c.Send(destination, "text/plain", []byte(message))
+	return c.Send(destination, "text/plain", []byte(message), stomp.SendOpt.Header("A", "B"))
 }
 
 //New creates a new StompSender and a connection to a STOMP server
