@@ -14,7 +14,7 @@ func (c *StompSender) SendMessage(destination, message string) error {
 	return c.Send(destination, "text/plain", []byte(message), stomp.SendOpt.Header("A", "B"))
 }
 
-//New creates a new StompSender and a connection to a STOMP server
+//New creates a new StompSender and a TCP connection to a STOMP server
 func New(addr string) (*StompSender, error) {
 	stompConn, err := stomp.Dial("tcp", addr)
 	if err != nil {

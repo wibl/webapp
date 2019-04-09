@@ -1,13 +1,51 @@
 package main
 
 import (
-	"fmt"
-	"html/template"
-	"io/ioutil"
-	"net/http"
+	/*
+		"fmt"
+		"html/template"
+		"io/ioutil"
+		"net/http"
+	*/
+
+	"log"
+	"os"
 
 	"github.com/wibl/webapp/mq"
 )
+
+func main() {
+	logger := log.New(os.Stdout, "Log Message ", log.Ldate|log.Ltime|log.Lshortfile)
+
+	stompSender, err := mq.New("localhost:61613")
+	if err != nil {
+		logger.Fatal(err)
+	}
+	defer stompSender.Disconnect()
+
+	context := &appContext{
+		sender: stompSender,
+	}
+
+	sendTestMessage(context)
+}
+
+type appContext struct {
+	sender mq.Sender
+}
+
+func sendTestMessage(context *appContext) error {
+	return context.sender.SendMessage("/queue/test-1", "TEST")
+}
+
+/* Deprecated
+func main() {
+	http.HandleFunc("/", handler)
+	http.HandleFunc("/view/", viewHandler)
+	http.HandleFunc("/edit/", editHandler)
+	http.HandleFunc("/save/", saveHandler)
+	log.Fatal(http.ListenAndServe(":8080", nil))
+}
 
 // Page as a struct with two fields representing the title and body.
 type Page struct {
@@ -68,32 +106,4 @@ func renderTemplate(wr http.ResponseWriter, tmpl string, page *Page) {
 	t, _ := template.ParseFiles(tmpl + ".html")
 	t.Execute(wr, page)
 }
-
-type appContext struct {
-	sender mq.Sender
-}
-
-func sendTestMessage(context *appContext) error {
-	return context.sender.SendMessage("/queue/test-1", "TEST")
-}
-
-func main() {
-	stompSender, err := mq.New("localhost:61613")
-	if err != nil {
-		panic(err)
-	}
-
-	context := &appContext{
-		sender: stompSender,
-	}
-
-	defer stompSender.Disconnect()
-
-	/*http.HandleFunc("/", handler)
-	http.HandleFunc("/view/", viewHandler)
-	http.HandleFunc("/edit/", editHandler)
-	http.HandleFunc("/save/", saveHandler)
-	log.Fatal(http.ListenAndServe(":8080", nil))*/
-
-	sendTestMessage(context)
-}
+*/
