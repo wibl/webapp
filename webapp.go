@@ -68,19 +68,23 @@ func renderTemplate(wr http.ResponseWriter, tmpl string, page *Page) {
 	t.Execute(wr, page)
 }
 
-var sender mq.Sender
+type appContext struct {
+	sender mq.Sender
+}
 
-func sendTestMessage() error {
-	return sender.SendMessage("/queue/test-1", "TEST")
+func sendTestMessage(context *appContext) error {
+	return context.sender.SendMessage("/queue/test-1", "TEST")
 }
 
 func main() {
-	stompSender, err := mq.Dial("tcp", "localhost:61613")
+	stompSender, err := mq.New("localhost:61613")
 	if err != nil {
 		panic(err)
 	}
 
-	sender = stompSender
+	context := &appContext{
+		sender: stompSender,
+	}
 
 	defer stompSender.Disconnect()
 
@@ -90,5 +94,5 @@ func main() {
 	http.HandleFunc("/save/", saveHandler)
 	log.Fatal(http.ListenAndServe(":8080", nil))*/
 
-	sendTestMessage()
+	sendTestMessage(context)
 }

@@ -4,19 +4,19 @@ import (
 	"github.com/go-stomp/stomp"
 )
 
-//StompSender StompSender
+//StompSender is a mq.Sender implementation
 type StompSender struct {
 	*stomp.Conn
 }
 
-//SendMessage SendMessage
+//SendMessage sends a message to the STOMP server
 func (c *StompSender) SendMessage(destination, message string) error {
 	return c.Send(destination, "text/plain", []byte(message))
 }
 
-//Dial Dial
-func Dial(network, addr string) (*StompSender, error) {
-	stompConn, err := stomp.Dial(network, addr)
+//New creates a new StompSender and a connection to a STOMP server
+func New(addr string) (*StompSender, error) {
+	stompConn, err := stomp.Dial("tcp", addr)
 	if err != nil {
 		return nil, err
 	}
