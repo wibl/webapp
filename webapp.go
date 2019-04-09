@@ -5,7 +5,8 @@ import (
 	"html/template"
 	"io/ioutil"
 	"net/http"
-	"webapp/mq"
+
+	"github.com/wibl/webapp/mq"
 )
 
 // Page as a struct with two fields representing the title and body.
