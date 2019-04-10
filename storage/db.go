@@ -2,22 +2,23 @@ package storage
 
 import (
 	"database/sql"
-	// For memory
-	_ "github.com/go-sql-driver/mysql"
+
+	"github.com/wibl/webapp/model"
 )
-// DataStorage implements methods of working with data storage
+
+// DataStorage is interface for working with data storage
 type DataStorage interface {
-	CreateGroup(title string) ()
+	CreateGroup(group model.Group) (model.Group, error)
 }
 
-// DB contains a specific implementation
+// DB is implementation of DataStorage interface for connecting to database
 type DB struct {
 	*sql.DB
 }
 
 // NewDb creates a database connection
-func NewDb (dataSource string) (*DB, error) {
-	db, err := sql.Open("mysql", dataSource)
+func NewDb(driverName, dataSource string) (*DB, error) {
+	db, err := sql.Open(driverName, dataSource)
 	if err != nil {
 		return nil, err
 	}
@@ -25,4 +26,10 @@ func NewDb (dataSource string) (*DB, error) {
 		return nil, err
 	}
 	return &DB{db}, nil
+}
+
+//CreateGroup creates group in database
+func (db *DB) CreateGroup(group model.Group) (model.Group, error) {
+	//TODO: implement
+	return group, nil
 }
