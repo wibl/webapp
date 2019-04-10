@@ -24,7 +24,15 @@ func NewDb(driverName, dataSource string) (*DB, error) {
 }
 
 //CreateGroup creates group in database
-func (db *DB) CreateGroup(group model.Group) (model.Group, error) {
-	//TODO: implement
-	return group, nil
+func (db *DB) CreateGroup(group *model.Group) error {
+	res, err := db.Exec("INSERT INTO group VALUES(?)", group.Title)
+	if err != nil {
+		return err
+	}
+	group.ID, err = res.LastInsertId()
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

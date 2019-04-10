@@ -6,5 +6,5 @@ import (
 
 // DataStorage is interface for working with data storage
 type DataStorage interface {
-	CreateGroup(group model.Group) (model.Group, error)
+	CreateGroup(group *model.Group) error
 }
