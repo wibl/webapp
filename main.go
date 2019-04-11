@@ -1,18 +1,20 @@
 package main
 
 import (
-	/*
-		"fmt"
-		"html/template"
-		"io/ioutil"
-		"net/http"
-	*/
-
+	"fmt"
 	"log"
 	"os"
 
+	"github.com/wibl/webapp/model"
 	"github.com/wibl/webapp/mq"
+	"github.com/wibl/webapp/storage"
 )
+
+func initializeStorage() storage.Storage {
+	//stor, _ := storage.NewDb("", "")
+	stor, _ := storage.NewMemStorage()
+	return stor
+}
 
 func main() {
 	logger := log.New(os.Stdout, "Log Message ", log.Ldate|log.Ltime|log.Lshortfile)
@@ -28,6 +30,54 @@ func main() {
 	}
 
 	sendTestMessage(context)
+
+	stor := initializeStorage()
+
+	group1 := &model.Group{Title: "test_group1"}
+	stor.CreateGroup(group1)
+	stor.CreateTemplate(&model.Template{GroupID: group1.ID, Title: "template1_in_group1"})
+	stor.CreateTemplate(&model.Template{GroupID: group1.ID, Title: "template2_in_group1"})
+
+	group2 := &model.Group{Title: "test_group2"}
+	stor.CreateGroup(group2)
+
+	group2template1 := &model.Template{GroupID: group2.ID, Title: "template1_in_group2"}
+	stor.CreateTemplate(group2template1)
+	stor.CreateTemplate(&model.Template{GroupID: group2.ID, Title: "template2_in_group2"})
+
+	printAllGroups(stor)
+
+	groups, _ := stor.GetGroups()
+	for _, group := range groups {
+		group.Title = group.Title + "_new"
+		stor.UpdateGroup(group)
+		templates, _ := stor.GetTemplates(group)
+		for _, template := range templates {
+			template.Body = "Body of " + template.Title
+			stor.UpdateTemplate(template)
+		}
+	}
+
+	printAllGroups(stor)
+
+	stor.DeleteGroup(group1)
+
+	stor.DeleteTemplate(group2template1)
+
+	printAllGroups(stor)
+
+}
+
+func printAllGroups(stor storage.Storage) {
+	fmt.Println("-----------------------------------")
+	groups, _ := stor.GetGroups()
+	for _, group := range groups {
+		fmt.Printf("%+v\n", group)
+		templates, _ := stor.GetTemplates(group)
+		for _, template := range templates {
+			fmt.Printf("%+v\n", template)
+		}
+	}
 }
 
 type appContext struct {
