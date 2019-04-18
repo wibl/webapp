@@ -2,6 +2,7 @@ package storage
 
 import (
 	"database/sql"
+	"log"
 
 	"github.com/wibl/webapp/model"
 )
@@ -19,13 +20,27 @@ func NewDbStorage(driverName, dataSource string) (Storage, error) {
 	if err = db.Ping(); err != nil {
 		return nil, err
 	}
+	db.Exec("CREATE TABLE IF NOT EXISTS `group` (id INTEGER PRIMARY KEY AUTOINCREMENT, title VARCHAR(255));")
 	return &dbStorage{db}, nil
 }
 
 //GetGroups gets groups from database
 func (db *dbStorage) GetAllGroups() ([]*model.Group, error) {
-	//TODO: implement
-	return nil, nil
+	rows, err := db.Query("SELECT * FROM `group`")
+	if err != nil {
+		return nil, err
+	}
+
+	groups := []*model.Group{}
+	for rows.Next() {
+		var group model.Group
+		err = rows.Scan(&group.ID, &group.Title)
+		if err != nil {
+			return nil, err
+		}
+		groups = append(groups, &group)
+	}
+	return groups, nil
 }
 
 func (db *dbStorage) GetGroup(id int64) (*model.Group, error) {
@@ -35,9 +50,13 @@ func (db *dbStorage) GetGroup(id int64) (*model.Group, error) {
 
 //CreateGroup creates group in database
 func (db *dbStorage) CreateGroup(group *model.Group) error {
-	res, err := db.Exec("INSERT INTO group VALUES(?)", group.Title)
+	stmt, err := db.Prepare("INSERT INTO `group`(title) VALUES(?)")
 	if err != nil {
 		return err
+	}
+	res, err := stmt.Exec(group.Title)
+	if err != nil {
+		log.Fatal(err)
 	}
 	group.ID, err = res.LastInsertId()
 	if err != nil {

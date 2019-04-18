@@ -7,34 +7,28 @@ import (
 
 	"github.com/wibl/webapp/api"
 	"github.com/wibl/webapp/model"
-	"github.com/wibl/webapp/mq"
 	"github.com/wibl/webapp/storage"
 
 	"net/http"
 
 	"github.com/gorilla/rpc"
 	"github.com/gorilla/rpc/json"
+
+	_ "github.com/mattn/go-sqlite3"
 )
 
 func main() {
 	logger := log.New(os.Stdout, "Log Message ", log.Ldate|log.Ltime|log.Lshortfile)
 
-	stompSender, err := mq.New("localhost:61613")
-	if err != nil {
-		logger.Fatal(err)
-	}
-	defer stompSender.Disconnect()
-
-	context := &appContext{
-		sender: stompSender,
-	}
-
-	sendTestMessage(context)
+	logger.Println("")
 
 	stor := initializeStorage()
 
 	group1 := &model.Group{Title: "test_group1"}
-	stor.CreateGroup(group1)
+	err := stor.CreateGroup(group1)
+	if err != nil {
+		log.Fatal(err)
+	}
 	stor.CreateTemplate(&model.Template{GroupID: group1.ID, Title: "template1_in_group1"})
 	stor.CreateTemplate(&model.Template{GroupID: group1.ID, Title: "template2_in_group1"})
 
@@ -69,17 +63,11 @@ func main() {
 	initRPC(stor)
 }
 
-type appContext struct {
-	sender mq.Sender
-}
-
-func sendTestMessage(context *appContext) error {
-	return context.sender.SendMessage("/queue/test-1", "TEST")
-}
-
 func initializeStorage() storage.Storage {
-	//stor, _ := storage.NewDb("", "")
-	stor, _ := storage.NewMemStorage()
+	stor, err := storage.NewDbStorage("sqlite3", "file:test.db?cache=shared&mode=memory")
+	if err != nil {
+		panic(err)
+	}
 	return stor
 }
 
@@ -101,27 +89,4 @@ func initRPC(stor storage.Storage) {
 	s.RegisterService(&api.GroupService{Stor: stor}, "GS")
 	http.Handle("/api", s)
 	log.Fatal(http.ListenAndServe(":8080", nil))
-}
-
-// func initRPC() {
-// 	s := rpc.NewServer()
-// 	s.RegisterCodec(json.NewCodec(), "application/json")
-// 	s.RegisterService(new(HelloService), "")
-// 	http.Handle("/rpc", s)
-// 	log.Fatal(http.ListenAndServe(":8080", nil))
-// }
-
-type HelloArgs struct {
-	Who string
-}
-
-type HelloReply struct {
-	Message string
-}
-
-type HelloService struct{}
-
-func (h *HelloService) Say(r *http.Request, args *HelloArgs, reply *HelloReply) error {
-	reply.Message = "Hello, " + args.Who + "!"
-	return nil
 }
