@@ -5,16 +5,16 @@ import (
 	"log"
 	"os"
 
+	"github.com/wibl/webapp/api"
 	"github.com/wibl/webapp/model"
 	"github.com/wibl/webapp/mq"
 	"github.com/wibl/webapp/storage"
-)
 
-func initializeStorage() storage.Storage {
-	//stor, _ := storage.NewDb("", "")
-	stor, _ := storage.NewMemStorage()
-	return stor
-}
+	"net/http"
+
+	"github.com/gorilla/rpc"
+	"github.com/gorilla/rpc/json"
+)
 
 func main() {
 	logger := log.New(os.Stdout, "Log Message ", log.Ldate|log.Ltime|log.Lshortfile)
@@ -47,14 +47,14 @@ func main() {
 
 	printAllGroups(stor)
 
-	groups, _ := stor.GetGroups()
+	groups, _ := stor.GetAllGroups()
 	for _, group := range groups {
 		group.Title = group.Title + "_new"
-		stor.UpdateGroup(group)
-		templates, _ := stor.GetTemplates(group)
+		//stor.UpdateGroup(group)
+		templates, _ := stor.GetAllTemplates(group)
 		for _, template := range templates {
 			template.Body = "Body of " + template.Title
-			stor.UpdateTemplate(template)
+			//stor.UpdateTemplate(template)
 		}
 	}
 
@@ -66,18 +66,7 @@ func main() {
 
 	printAllGroups(stor)
 
-}
-
-func printAllGroups(stor storage.Storage) {
-	fmt.Println("-----------------------------------")
-	groups, _ := stor.GetGroups()
-	for _, group := range groups {
-		fmt.Printf("%+v\n", group)
-		templates, _ := stor.GetTemplates(group)
-		for _, template := range templates {
-			fmt.Printf("%+v\n", template)
-		}
-	}
+	initRPC(stor)
 }
 
 type appContext struct {
@@ -88,72 +77,51 @@ func sendTestMessage(context *appContext) error {
 	return context.sender.SendMessage("/queue/test-1", "TEST")
 }
 
-/* Deprecated
-func main() {
-	http.HandleFunc("/", handler)
-	http.HandleFunc("/view/", viewHandler)
-	http.HandleFunc("/edit/", editHandler)
-	http.HandleFunc("/save/", saveHandler)
+func initializeStorage() storage.Storage {
+	//stor, _ := storage.NewDb("", "")
+	stor, _ := storage.NewMemStorage()
+	return stor
+}
+
+func printAllGroups(stor storage.Storage) {
+	fmt.Println("-----------------------------------")
+	groups, _ := stor.GetAllGroups()
+	for _, group := range groups {
+		fmt.Printf("%+v\n", group)
+		templates, _ := stor.GetAllTemplates(group)
+		for _, template := range templates {
+			fmt.Printf("%+v\n", template)
+		}
+	}
+}
+
+func initRPC(stor storage.Storage) {
+	s := rpc.NewServer()
+	s.RegisterCodec(json.NewCodec(), "application/json")
+	s.RegisterService(&api.GroupService{Stor: stor}, "GS")
+	http.Handle("/api", s)
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }
 
-// Page as a struct with two fields representing the title and body.
-type Page struct {
-	Title string
-	Body  []byte
+// func initRPC() {
+// 	s := rpc.NewServer()
+// 	s.RegisterCodec(json.NewCodec(), "application/json")
+// 	s.RegisterService(new(HelloService), "")
+// 	http.Handle("/rpc", s)
+// 	log.Fatal(http.ListenAndServe(":8080", nil))
+// }
+
+type HelloArgs struct {
+	Who string
 }
 
-func (p *Page) save() error {
-	filename := p.Title + ".txt"
-	return ioutil.WriteFile(filename, p.Body, 0600)
+type HelloReply struct {
+	Message string
 }
 
-func loadPage(title string) (*Page, error) {
-	filename := title + ".txt"
-	body, err := ioutil.ReadFile(filename)
-	if err != nil {
-		return nil, err
-	}
-	return &Page{Title: title, Body: body}, nil
-}
+type HelloService struct{}
 
-func handler(wr http.ResponseWriter, r *http.Request) {
-	name := r.URL.Path[1:]
-	if name == "" {
-		name = "MainPage"
-	}
-	fmt.Fprintf(wr, "Hi, there, it's %s!", name)
+func (h *HelloService) Say(r *http.Request, args *HelloArgs, reply *HelloReply) error {
+	reply.Message = "Hello, " + args.Who + "!"
+	return nil
 }
-
-func viewHandler(wr http.ResponseWriter, r *http.Request) {
-	title := r.URL.Path[len("/view/"):]
-	p, err := loadPage(title)
-	if err != nil {
-		http.Redirect(wr, r, "/edit/"+title, http.StatusFound)
-		return
-	}
-	renderTemplate(wr, "view", p)
-}
-
-func editHandler(wr http.ResponseWriter, r *http.Request) {
-	title := r.URL.Path[len("/edit/"):]
-	p, err := loadPage(title)
-	if err != nil {
-		p = &Page{Title: title}
-	}
-	renderTemplate(wr, "edit", p)
-}
-
-func saveHandler(wr http.ResponseWriter, r *http.Request) {
-	title := r.URL.Path[len("/save/"):]
-	body := r.FormValue("body")
-	p := &Page{Title: title, Body: []byte(body)}
-	p.save()
-	http.Redirect(wr, r, "/view/"+title, http.StatusFound)
-}
-
-func renderTemplate(wr http.ResponseWriter, tmpl string, page *Page) {
-	t, _ := template.ParseFiles(tmpl + ".html")
-	t.Execute(wr, page)
-}
-*/

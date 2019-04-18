@@ -14,7 +14,7 @@ func TestCreateGroup(t *testing.T) {
 	}
 	defer db.Close()
 
-	fakeDB := &DB{db}
+	fakeDB := &dbStorage{db}
 	newGroup := &model.Group{Title: "test_group"}
 	//mock.ExpectBegin()
 	mock.ExpectExec("INSERT INTO group").WithArgs(newGroup.Title).WillReturnResult(sqlmock.NewResult(1, 1))

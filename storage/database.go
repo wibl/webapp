@@ -23,7 +23,12 @@ func NewDbStorage(driverName, dataSource string) (Storage, error) {
 }
 
 //GetGroups gets groups from database
-func (db *dbStorage) GetGroups() ([]*model.Group, error) {
+func (db *dbStorage) GetAllGroups() ([]*model.Group, error) {
+	//TODO: implement
+	return nil, nil
+}
+
+func (db *dbStorage) GetGroup(id int64) (*model.Group, error) {
 	//TODO: implement
 	return nil, nil
 }
@@ -47,7 +52,12 @@ func (db *dbStorage) CreateTemplate(template *model.Template) error {
 	return nil
 }
 
-func (db *dbStorage) GetTemplates(*model.Group) ([]*model.Template, error) {
+func (db *dbStorage) GetAllTemplates(*model.Group) ([]*model.Template, error) {
+	//TODO: implement
+	return nil, nil
+}
+
+func (db *dbStorage) GetTemplate(id int64) (*model.Template, error) {
 	//TODO: implement
 	return nil, nil
 }
@@ -61,11 +71,11 @@ func (db *dbStorage) DeleteTemplate(template *model.Template) error {
 	return nil
 }
 
-func (db *dbStorage) UpdateGroup(group *model.Group) error {
-	//TODO: implement
-	return nil
-}
-func (db *dbStorage) UpdateTemplate(template *model.Template) error {
-	//TODO: implement
-	return nil
-}
+// func (db *dbStorage) UpdateGroup(group *model.Group) error {
+// 	//TODO: implement
+// 	return nil
+// }
+// func (db *dbStorage) UpdateTemplate(template *model.Template) error {
+// 	//TODO: implement
+// 	return nil
+// }

@@ -6,8 +6,11 @@ import (
 
 // Storage is interface for working with data storage
 type Storage interface {
-	GetGroups() ([]*model.Group, error)
-	GetTemplates(*model.Group) ([]*model.Template, error)
+	GetAllGroups() ([]*model.Group, error)
+	GetAllTemplates(*model.Group) ([]*model.Template, error)
+
+	GetGroup(id int64) (*model.Group, error)
+	GetTemplate(id int64) (*model.Template, error)
 
 	CreateGroup(group *model.Group) error
 	CreateTemplate(template *model.Template) error
@@ -15,6 +18,6 @@ type Storage interface {
 	DeleteGroup(group *model.Group) error
 	DeleteTemplate(template *model.Template) error
 
-	UpdateGroup(group *model.Group) error
-	UpdateTemplate(template *model.Template) error
+	// UpdateGroup(group *model.Group) error
+	// UpdateTemplate(template *model.Template) error
 }
