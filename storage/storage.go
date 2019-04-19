@@ -18,6 +18,6 @@ type Storage interface {
 	DeleteGroup(group *model.Group) error
 	DeleteTemplate(template *model.Template) error
 
-	// UpdateGroup(group *model.Group) error
-	// UpdateTemplate(template *model.Template) error
+	UpdateGroup(group *model.Group) error
+	UpdateTemplate(template *model.Template) error
 }

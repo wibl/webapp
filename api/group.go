@@ -47,17 +47,6 @@ func (gs *GroupService) GetAllGroups(rq *http.Request, args *GroupArgs, reply *G
 	return nil
 }
 
-// DeleteGroup deletes the group by id
-func (gs *GroupService) DeleteGroup(rq *http.Request, args *GroupArgs, reply *GroupReply) error {
-	group, err := gs.Stor.GetGroup(args.ID)
-	if err != nil {
-		return err
-	}
-	gs.Stor.DeleteGroup(group)
-	reply.Message = "Group with ID " + fmt.Sprint(args.ID) + " was successfully deleted"
-	return nil
-}
-
 // UpdateGroup updates the group title
 func (gs *GroupService) UpdateGroup(rq *http.Request, args *GroupArgs, reply *GroupReply) error {
 	group, err := gs.Stor.GetGroup(args.ID)
@@ -65,6 +54,33 @@ func (gs *GroupService) UpdateGroup(rq *http.Request, args *GroupArgs, reply *Gr
 		return err
 	}
 	group.Title = args.Title
+	err = gs.Stor.UpdateGroup(group)
+	if err != nil {
+		return err
+	}
+
+	groups, err := gs.Stor.GetAllGroups()
+	if err != nil {
+		return nil
+	}
 	reply.Message = "Group was successfully update"
+	reply.Groups = groups
+	return nil
+}
+
+// DeleteGroup deletes the group by id
+func (gs *GroupService) DeleteGroup(rq *http.Request, args *GroupArgs, reply *GroupReply) error {
+	group, err := gs.Stor.GetGroup(args.ID)
+	if err != nil {
+		return err
+	}
+	gs.Stor.DeleteGroup(group)
+
+	groups, err := gs.Stor.GetAllGroups()
+	if err != nil {
+		return nil
+	}
+	reply.Message = "Group with ID " + fmt.Sprint(args.ID) + " was successfully deleted"
+	reply.Groups = groups
 	return nil
 }
