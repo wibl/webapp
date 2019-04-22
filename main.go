@@ -23,7 +23,9 @@ func main() {
 		logger.Fatal(err)
 	}
 
-	initRPC(stor)
+	if err = initRPC(stor); err != nil {
+		logger.Fatal(err)
+	}
 }
 
 func initializeStorage() (storage.Storage, error) {
@@ -34,11 +36,11 @@ func initializeStorage() (storage.Storage, error) {
 	return stor, nil
 }
 
-func initRPC(stor storage.Storage) {
+func initRPC(stor storage.Storage) error {
 	rpcServ := rpc.NewServer()
 	rpcServ.RegisterCodec(json.NewCodec(), "application/json")
 	rpcServ.RegisterService(&api.GroupService{Stor: stor}, "GS")
 	rpcServ.RegisterService(&api.TemplateService{Stor: stor}, "TS")
 	http.Handle("/api", rpcServ)
-	log.Fatal(http.ListenAndServe(":8080", nil))
+	return http.ListenAndServe(":8080", nil)
 }
