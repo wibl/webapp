@@ -42,5 +42,6 @@ func initRPC(stor storage.Storage) error {
 	rpcServ.RegisterService(&api.GroupService{Stor: stor}, "GS")
 	rpcServ.RegisterService(&api.TemplateService{Stor: stor}, "TS")
 	http.Handle("/api", rpcServ)
+	http.Handle("/", http.FileServer(http.Dir("./static")))
 	return http.ListenAndServe(":8080", nil)
 }
