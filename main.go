@@ -39,6 +39,7 @@ func initializeStorage() (storage.Storage, error) {
 func initRPC(stor storage.Storage) error {
 	rpcServ := rpc.NewServer()
 	rpcServ.RegisterCodec(json.NewCodec(), "application/json")
+	rpcServ.RegisterService(&api.MqService{}, "MqService")
 	rpcServ.RegisterService(&api.GroupService{Stor: stor}, "GS")
 	rpcServ.RegisterService(&api.TemplateService{Stor: stor}, "TS")
 	http.Handle("/api", rpcServ)

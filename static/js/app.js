@@ -1,18 +1,33 @@
+const api = {
+  async connectToMq(url, user, pass) {
+    const response = await axios.post('/api', {"jsonrpc": "2.0", "method": "MqService.Connect", "params": [{"URL": "tcp://localhost:61613"}], "id": 1});
+    return response.data;
+  },
+  getAllGroups() {
+    return new Promise((resolve, reject) => {
+       setTimeout(() => {
+          resolve([{
+              title: 'group1',
+              id: 1
+            },
+            {
+              title: 'group2',
+              id: 2
+            },
+            {
+              title: 'group3',
+              id: 3
+            }
+          ]);
+
+    	}, 3000);
+    })
+  } 
+}
+
 const store = new Vuex.Store({
   state: {
-    groups: [{
-        title: 'group1',
-        id: 1
-      },
-      {
-        title: 'group2',
-        id: 2
-      },
-      {
-        title: 'group3',
-        id: 3
-      }
-    ],
+    groups: [],
     templates: [{
         title: 'group1_template1',
         queue: 'group1_template1_queue',
@@ -38,6 +53,22 @@ const store = new Vuex.Store({
         groupId: 3
       }
     ]
+  },
+  mutations: {
+    addGroup (state, group) {
+      state.groups.push(group);
+    }
+  },
+  actions: {
+    async signIn (context) {
+      const res = await api.connectToMq();
+      console.log(res)
+      //TODO: check res.error
+      const groups = await api.getAllGroups();
+      groups.forEach((group) => {
+        context.commit('addGroup', group)
+      });
+    }
   },
   getters: {
     getTemplatesByGroupId: (state) => (id) => {
@@ -69,7 +100,7 @@ const Login = {
           <input id="pass" v-model="pass">
         </div>
         <div class="pure-controls">
-          <button type="submit" class="pure-button pure-button-primary">Sign in</button>
+          <button type="submit" :disabled="!isSubmitButtonEnabled" class="pure-button pure-button-primary">Sign in</button>
         </div>
       </fieldset>
 		</form>
@@ -77,15 +108,21 @@ const Login = {
   methods: {
     onSubmit: function() {
       //console.log({ name: this.name, email: this.email });
-      alert('Connecting. URL: ' + this.url + ', user: ' + this.user + ', pass: ' + this.pass);
-      this.$router.push("/main");
+      //alert('Connecting. URL: ' + this.url + ', user: ' + this.user + ', pass: ' + this.pass);
+      this.isSubmitButtonEnabled = false;
+
+      this.$store.dispatch('signIn').then(() => {
+        this.$router.push("/main");
+      })
+      
     }
   },
   data: function() {
     return {
       url: '',
       user: '',
-      pass: ''
+      pass: '',
+      isSubmitButtonEnabled: true
     }
   }
 }
