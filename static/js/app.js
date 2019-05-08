@@ -3,25 +3,9 @@ const api = {
     const response = await axios.post('/api', {"jsonrpc": "2.0", "method": "MqService.Connect", "params": [{"URL": "tcp://localhost:61613"}], "id": 1});
     return response.data;
   },
-  getAllGroups() {
-    return new Promise((resolve, reject) => {
-       setTimeout(() => {
-          resolve([{
-              title: 'group1',
-              id: 1
-            },
-            {
-              title: 'group2',
-              id: 2
-            },
-            {
-              title: 'group3',
-              id: 3
-            }
-          ]);
-
-    	}, 3000);
-    })
+  async getAllGroups() {
+    const response = await axios.post('/api', {"jsonrpc": "2.0", "method": "GS.GetAllGroups", "params": [{}], "id": 1});
+    return response.data;
   } 
 }
 
@@ -61,11 +45,11 @@ const store = new Vuex.Store({
   },
   actions: {
     async signIn (context) {
-      const res = await api.connectToMq();
-      console.log(res)
+      const resConnect = await api.connectToMq();
+      console.log(resConnect.error)
       //TODO: check res.error
-      const groups = await api.getAllGroups();
-      groups.forEach((group) => {
+      const resAllGroups = await api.getAllGroups();
+      resAllGroups.result.Groups.forEach((group) => {
         context.commit('addGroup', group)
       });
     }
@@ -134,8 +118,8 @@ const Main = {
         <div class="pure-control-group">
           <label for="group">Group:</label>
           <select id="group" v-model="selectedGroupId">
-            <option v-for="group in groupList" v-bind:value="group.id">
-              {{ group.title }}
+            <option v-for="group in groupList" v-bind:value="group.ID">
+              {{ group.Title }}
             </option>
           </select>
         </div>
