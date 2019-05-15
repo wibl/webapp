@@ -1,10 +1,13 @@
 const api = {
+  async invoke(method, params) {
+    return axios.post('/api', {"jsonrpc": "2.0", "method": method, "params": [params || {}], "id": 1});
+  },
   async connectToMq(url, user, pass) {
-    const response = await axios.post('/api', {"jsonrpc": "2.0", "method": "MqService.Connect", "params": [{"URL": "tcp://localhost:61613"}], "id": 1});
+    const response = await this.invoke("MqService.Connect", {"URL": url, "User": user, "Pass": pass});
     return response.data;
   },
   async getAllGroups() {
-    const response = await axios.post('/api', {"jsonrpc": "2.0", "method": "GS.GetAllGroups", "params": [{}], "id": 1});
+    const response = await this.invoke("GS.GetAllGroups");
     return response.data;
   } 
 }
@@ -44,10 +47,12 @@ const store = new Vuex.Store({
     }
   },
   actions: {
-    async signIn (context) {
-      const resConnect = await api.connectToMq();
-      console.log(resConnect.error)
-      //TODO: check res.error
+    async signIn (context, payload) {
+      const resConnect = await api.connectToMq(payload.url, payload.user, payload.pass);
+      if (resConnect.error) {
+        throw new Error(resConnect.error);
+      }
+
       const resAllGroups = await api.getAllGroups();
       resAllGroups.result.Groups.forEach((group) => {
         context.commit('addGroup', group)
@@ -69,7 +74,12 @@ const store = new Vuex.Store({
 
 const Login = {
   template: `
-  	<form @submit.prevent="onSubmit" class="pure-form pure-form-aligned">
+    <form @submit.prevent="onSubmit" class="pure-form pure-form-aligned">
+      <div v-if="errors.length" class="alert alert-danger">
+        <ul v-for="error in errors" class="list-unstyled">
+          <li>{{ error }}</li>
+        </ul>
+      </div>
     	<fieldset>
         <div class="pure-control-group">
           <label for="url">URL:</label>
@@ -91,22 +101,25 @@ const Login = {
 	`,
   methods: {
     onSubmit: function() {
-      //console.log({ name: this.name, email: this.email });
-      //alert('Connecting. URL: ' + this.url + ', user: ' + this.user + ', pass: ' + this.pass);
       this.isSubmitButtonEnabled = false;
+      this.errors = [];
 
-      this.$store.dispatch('signIn').then(() => {
+      this.$store.dispatch('signIn', {url: this.url, user: this.user, pass: this.pass}).then(() => {
         this.$router.push("/main");
-      })
+      }).catch((err) => {
+        this.errors.push(err)
+        this.isSubmitButtonEnabled = true;
+      });
       
     }
   },
   data: function() {
     return {
-      url: '',
+      url: 'tcp://localhost:61613',
       user: '',
       pass: '',
-      isSubmitButtonEnabled: true
+      isSubmitButtonEnabled: true,
+      errors: []
     }
   }
 }
