@@ -1,78 +1,118 @@
+const EditMode = {
+  CREATE: Symbol(), CHANGE: Symbol(), DELETE: Symbol()
+}
+
 const api = {
   async invoke(method, params) {
-    return axios.post('/api', {"jsonrpc": "2.0", "method": method, "params": [params || {}], "id": 1});
+    const response = await axios.post('/api', {"jsonrpc": "2.0", "method": method, "params": [params || {}], "id": 1});
+    if (response.data.error) {
+      throw new Error(response.data.error);
+    }
+    return response.data.result;
   },
   async connectToMq(url, user, pass) {
-    const response = await this.invoke("MqService.Connect", {"URL": url, "User": user, "Pass": pass});
-    return response.data;
+    return this.invoke("MqService.Connect", {"URL": url, "User": user, "Pass": pass});
   },
   async getAllGroups() {
-    const response = await this.invoke("GS.GetAllGroups");
-    return response.data;
-  } 
+    return this.invoke("GS.GetAllGroups");
+  },
+  async createGroup(title) {
+    return this.invoke("GS.CreateGroup", {"Title": title});
+  },
+  async deleteGroup(groupId) {
+    return this.invoke("GS.DeleteGroup", {"ID": groupId});
+  },
+  async getAllTemplates(groupId) {
+    return this.invoke("TS.GetAllTemplates", {"GroupID": groupId});
+  },
+  async createTemplate(groupId, title, queue) {
+    return this.invoke("TS.CreateTemplate", {"GroupID": groupId, "Title": title, "Queue": queue, "Body": ""});
+  }
 }
 
 const store = new Vuex.Store({
   state: {
     groups: [],
-    templates: [{
-        title: 'group1_template1',
-        queue: 'group1_template1_queue',
-        id: 1,
-        groupId: 1
-      },
-      {
-        title: 'group1_template2',
-        queue: 'group1_template2_queue',
-        id: 2,
-        groupId: 1
-      },
-      {
-        title: 'group2_template1',
-        queue: 'group2_template1_queue',
-        id: 3,
-        groupId: 2
-      },
-      {
-        title: 'group3_template1',
-        queue: 'group3_template1_queue',
-        id: 4,
-        groupId: 3
-      }
-    ]
+    templates: []
   },
   mutations: {
     addGroup (state, group) {
       state.groups.push(group);
+    },
+    deleteGroup (state, group) {
+      state.groups.splice(state.groups.indexOf(group), 1);
+      state.templates.filter(template => template.GroupID === group.ID).forEach(template => {
+        state.templates.splice(state.templates.indexOf(template), 1);
+      });
+    },
+    addTemplate (state, template) {
+      state.templates.push(template);
     }
   },
   actions: {
     async signIn (context, payload) {
-      const resConnect = await api.connectToMq(payload.url, payload.user, payload.pass);
-      if (resConnect.error) {
-        throw new Error(resConnect.error);
-      }
+      await api.connectToMq(payload.url, payload.user, payload.pass);
 
       const resAllGroups = await api.getAllGroups();
-      resAllGroups.result.Groups.forEach((group) => {
-        context.commit('addGroup', group)
-      });
+      for (group of resAllGroups.Groups) {
+        context.commit('addGroup', group);
+
+        const resAllTemplates = await api.getAllTemplates(group.ID);
+        for (template of resAllTemplates.Templates) {
+          context.commit('addTemplate', template);
+        }
+      }
+    },
+    async save (context, payload) {
+      let groupId = payload.groupId;
+
+      switch (payload.groupEditMode) {
+        case EditMode.CREATE:
+          const result = await api.createGroup(payload.groupTitle);
+
+          context.commit('addGroup', result.Group);
+          groupId = result.Group.ID;
+          break;
+        case EditMode.DELETE:
+          await api.deleteGroup(groupId);
+
+          context.commit('deleteGroup', groupId);
+          break;
+        case EditMode.CHANGE:
+          //TODO: Implement
+          break;
+      }
+
+      switch (payload.templateEditMode) {
+        case EditMode.CREATE:
+            const result = await api.createTemplate(groupId, payload.templateTitle, payload.queue);
+
+            context.commit('addTemplate', result.Template);
+        break;
+        case EditMode.DELETE:
+          //TODO: Implement
+          break;
+        case EditMode.CHANGE:
+          //TODO: Implement
+          break;
+      }
+
     }
   },
   getters: {
-    getTemplatesByGroupId: (state) => (id) => {
-      return state.templates.filter(template => template.groupId === id);
+    getTemplatesByGroupId: (state) => (groupId) => {
+      return state.templates.filter(template => template.GroupID === groupId);
     },
-    getTemplateById: (state) => (id) => {
-      return state.templates.find(template => template.groupId === id);
+    getTemplateById: (state) => (templateId) => {
+      return state.templates.find(template => template.ID === templateId);
     },
-    getGroupById: (state) => (id) => {
-      return state.groups.find(group => group.id === id);
+    getGroupById: (state) => (groupId) => {
+      return state.groups.find(group => group.ID === groupId);
     }
   }
 })
 
-const Login = {
+const LoginPage = {
   template: `
     <form @submit.prevent="onSubmit" class="pure-form pure-form-aligned">
       <div v-if="errors.length" class="alert alert-danger">
@@ -124,7 +164,7 @@ const Login = {
   }
 }
 
-const Main = {
+const MainPage = {
   template: `
   	<form @submit.prevent="onSubmit" class="pure-form pure-form-aligned">
     	<fieldset>
@@ -139,8 +179,8 @@ const Main = {
         <div class="pure-control-group">
           <label for="template">Template:</label>
           <select id="template" v-model="selectedTemplateId">
-            <option v-for="template in templateList" v-bind:value="template.id">
-              {{ template.title }}
+            <option v-for="template in templateList" v-bind:value="template.ID">
+              {{ template.Title }}
             </option>
           </select>
           <button @click.prevent="onEdit" class="pure-button">Edit</button>
@@ -164,13 +204,24 @@ const Main = {
       alert('Not implemented yet!');
     },
     onEdit: function() {
-      this.$router.push({
-        name: 'edit_template',
-        params: {
-          groupId: this.selectedGroupId,
-          templateId: this.selectedTemplateId
-        }
-      });
+      if (this.selectedGroupId === 0) {
+        this.$router.push({name: 'create_group'});
+      } else if (this.selectedTemplateId === 0) {
+        this.$router.push({
+          name: 'create_template',
+          params: {
+            groupId: this.selectedGroupId
+          }
+        });
+      } else {
+        this.$router.push({
+          name: 'edit_template',
+          params: {
+            groupId: this.selectedGroupId,
+            templateId: this.selectedTemplateId
+          }
+        });
+      }
     }
   },
   data: function() {
@@ -183,7 +234,7 @@ const Main = {
   computed: {
     selectedTemplateQueue() {
     	const selectedTemplate = this.$store.getters.getTemplateById(this.selectedTemplateId);
-      return selectedTemplate ? selectedTemplate.queue : '';
+      return selectedTemplate ? selectedTemplate.Queue : '';
     },
     groupList() {
       return this.$store.state.groups
@@ -196,18 +247,29 @@ const Main = {
   }
 }
 
-const EditTemplate = {
+const EditPage = {
   props: ['groupId', 'templateId'],
   template: `
-  	<form class="pure-form pure-form-aligned">
-    	<fieldset>
+    <form class="pure-form pure-form-aligned">
+      groupEditMode=<div v-if="groupEditMode === EditMode.CREATE">CREATE</div><div v-if="groupEditMode === EditMode.CHANGE">CHANGE</div><div v-if="groupEditMode === EditMode.DELETE">DELETE</div>
+      templateEditMode=<div v-if="templateEditMode === EditMode.CREATE">CREATE</div><div v-if="templateEditMode === EditMode.CHANGE">CHANGE</div><div v-if="templateEditMode === EditMode.DELETE">DELETE</div>
+      <div v-if="errors.length" class="alert alert-danger">
+        <ul v-for="error in errors" class="list-unstyled">
+          <li>{{ error }}</li>
+        </ul>
+      </div>
+      <fieldset>
         <div class="pure-control-group">
           <label for="groupTitle">Group title:</label>
           <input id="groupTitle" v-model="groupTitle">
+          <button @click.prevent="onGroupAdd" class="pure-button">Add</button>
+          <button @click.prevent="onGroupDelete" class="pure-button">Delete</button>
 				</div>
         <div class="pure-control-group">
           <label for="templateTitle">Template title:</label>
           <input id="templateTitle" v-model="templateTitle">
+          <button @click.prevent="onTemplateAdd" class="pure-button">Add</button>
+          <button @click.prevent="onTemplateDelete" class="pure-button">Delete</button>
         </div>
         <div class="pure-control-group">
           <label for="queue">Queue:</label>
@@ -218,44 +280,96 @@ const EditTemplate = {
           <button @click.prevent="onCancel" class="pure-button">Cancel</button>
         </div>
       </fieldset>
+      <div v-if="isSaving" class="overlay-loader"></div>
     </form>
 	`,
   methods: {
     onSave: function() {
-      alert('Not implemented yet!');
+      this.isSaving = true;
+
+      this.$store.dispatch('save', {
+        groupEditMode: this.groupEditMode,
+        templateEditMode: this.templateEditMode,
+        groupId: this.groupId,
+        groupTitle: this.groupTitle,
+        templateId: this.templateId,
+        templateTitle: this.templateTitle,
+        queue: this.queue
+      }).then(() => {
+        this.$router.push("/main");
+      }).catch((err) => {
+        this.errors.push(err);
+        this.isSaving = false;
+      });
     },
     onCancel: function() {
       this.$router.push("/main");
-    }
+    },
+    onGroupAdd: function() {
+      this.groupEditMode = EditMode.CREATE;
+    },
+    onGroupDelete: function() {
+      this.groupEditMode = EditMode.DELETE;
+    },
+    onTemplateAdd: function() {
+      this.templateEditMode = EditMode.CREATE;
+    },
+    onTemplateDelete: function() {
+      this.templateEditMode = EditMode.DELETE;
+    },
   },
   data: function() {
     return {
+      groupEditMode: EditMode.CREATE,
+      templateEditMode: EditMode.CREATE,
       groupTitle: '',
       templateTitle: '',
-      queue: ''
+      queue: '',
+      EditMode: EditMode,
+      isSaving: false,
+      errors: []
     }
   },
   created: function() {
-  	const editableTemplate = this.$store.getters.getTemplateById(this.templateId);
-    const editableGroup = this.$store.getters.getGroupById(this.groupId);
-    this.groupTitle = editableGroup.title
-    this.templateTitle = editableTemplate.title
-    this.queue = editableTemplate.queue
+    if (this.groupId) {
+      this.groupEditMode = EditMode.CHANGE
+
+      const editableGroup = this.$store.getters.getGroupById(this.groupId);
+      this.groupTitle = editableGroup.Title
+    }
+    if (this.templateId) {
+      this.templateEditMode = EditMode.CHANGE
+
+      const editableTemplate = this.$store.getters.getTemplateById(this.templateId);
+      this.templateTitle = editableTemplate.Title
+      this.queue = editableTemplate.Queue
+    }
   }
 }
 
 const routes = [{
     path: '/',
-    component: Login
+    component: LoginPage
   },
   {
     path: '/main',
-    component: Main
+    component: MainPage
+  },
+  {
+    name: 'create_group',
+    path: '/group/create',
+    component: EditPage
+  },
+  {
+    name: 'create_template',
+    path: '/group/:groupId/template/create',
+    component: EditPage,
+    props: true
   },
   {
     name: 'edit_template',
     path: '/group/:groupId/template/:templateId/edit',
-    component: EditTemplate,
+    component: EditPage,
     props: true
   }
 ]

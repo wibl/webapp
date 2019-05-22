@@ -25,14 +25,21 @@ type GroupReply struct {
 	Groups  []*model.Group
 }
 
+// CreateGroupReply contains info for replay
+type CreateGroupReply struct {
+	Message string
+	Group   *model.Group
+}
+
 // CreateGroup allows to create a group
-func (gs *GroupService) CreateGroup(rq *http.Request, args *GroupArgs, reply *GroupReply) error {
+func (gs *GroupService) CreateGroup(rq *http.Request, args *GroupArgs, reply *CreateGroupReply) error {
 	newGroup := &model.Group{Title: args.Title}
 	err := gs.Stor.CreateGroup(newGroup)
 	if err != nil {
 		return err
 	}
 	reply.Message = "Created Group " + args.Title
+	reply.Group = newGroup
 	return nil
 }
 
@@ -74,6 +81,7 @@ func (gs *GroupService) DeleteGroup(rq *http.Request, args *GroupArgs, reply *Gr
 	if err != nil {
 		return err
 	}
+	//TODO: Delete all templates with groupId == args.ID
 	gs.Stor.DeleteGroup(group)
 
 	groups, err := gs.Stor.GetAllGroups()

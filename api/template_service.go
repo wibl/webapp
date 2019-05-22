@@ -28,14 +28,21 @@ type TemplateReply struct {
 	Templates []*model.Template
 }
 
+// CreateTemplateReply contains info for replay
+type CreateTemplateReply struct {
+	Message  string
+	Template *model.Template
+}
+
 // CreateTemplate allows to create a template
-func (gs *TemplateService) CreateTemplate(rq *http.Request, args *TemplateArgs, reply *TemplateReply) error {
+func (gs *TemplateService) CreateTemplate(rq *http.Request, args *TemplateArgs, reply *CreateTemplateReply) error {
 	newTmp := &model.Template{GroupID: args.GroupID, Title: args.Title, Queue: args.Queue, Body: args.Body}
 	err := gs.Stor.CreateTemplate(newTmp)
 	if err != nil {
 		return err
 	}
 	reply.Message = "Created Template " + args.Title
+	reply.Template = newTmp
 	return nil
 }
 
