@@ -25,8 +25,11 @@ const api = {
   async getAllTemplates(groupId) {
     return this.invoke("TS.GetAllTemplates", {"GroupID": groupId});
   },
-  async createTemplate(groupId, title, queue) {
-    return this.invoke("TS.CreateTemplate", {"GroupID": groupId, "Title": title, "Queue": queue, "Body": ""});
+  async createTemplate(groupId, title, queue, body) {
+    return this.invoke("TS.CreateTemplate", {"GroupID": groupId, "Title": title, "Queue": queue, "Body": body});
+  },
+  async sendToMq(queue, message) {
+    return this.invoke("MqService.Send", {"Queue": queue, "Message": message});
   }
 }
 
@@ -85,7 +88,7 @@ const store = new Vuex.Store({
 
       switch (payload.templateEditMode) {
         case EditMode.CREATE:
-            const result = await api.createTemplate(groupId, payload.templateTitle, payload.queue);
+            const result = await api.createTemplate(groupId, payload.templateTitle, payload.queue, payload.body);
 
             context.commit('addTemplate', result.Template);
         break;
@@ -97,6 +100,9 @@ const store = new Vuex.Store({
           break;
       }
 
+    },
+    async send (context, payload) {
+      await api.sendToMq(payload.queue, payload.message);
     }
   },
   getters: {
@@ -131,7 +137,7 @@ const LoginPage = {
         </div>
         <div class="pure-control-group">
           <label for="pass">Pass(opt):</label>
-          <input id="pass" v-model="pass">
+          <input id="pass" type="password" v-model="pass">
         </div>
         <div class="pure-controls">
           <button type="submit" :disabled="!isSubmitButtonEnabled" class="pure-button pure-button-primary">Sign in</button>
@@ -191,7 +197,7 @@ const MainPage = {
         </div>
         <div class="pure-control-group">
           <label for="message">Message:</label>
-          <textarea id="message" v-model="message" style="vertical-align: top;" />
+          <textarea id="message" :value="selectedTemplateBody" style="vertical-align: top;" />
         </div>
         <div class="pure-controls">
           <button type="submit" class="pure-button pure-button-primary">Send</button>
@@ -201,7 +207,9 @@ const MainPage = {
 	`,
   methods: {
     onSubmit: function() {
-      alert('Not implemented yet!');
+      this.$store.dispatch('send', {queue: this.selectedTemplateQueue, message: this.selectedTemplateBody}).then(() => {
+        alert("Message sent")
+      })
     },
     onEdit: function() {
       if (this.selectedGroupId === 0) {
@@ -228,21 +236,35 @@ const MainPage = {
     return {
       selectedGroupId: 0,
       selectedTemplateId: 0,
-      message: ''
     }
   },
   computed: {
-    selectedTemplateQueue() {
-    	const selectedTemplate = this.$store.getters.getTemplateById(this.selectedTemplateId);
-      return selectedTemplate ? selectedTemplate.Queue : '';
-    },
     groupList() {
       return this.$store.state.groups
     },
+    // selectedGroupId() {
+    //   this.groupList.forEach(group => {
+    //     console.log("groupId", group.ID)
+    //     return group.ID
+    //   })
+    // },
     templateList: function() {
-      this.selectedTemplateId = 0;
-
+      //this.selectedTemplateId = 0;
       return this.$store.getters.getTemplatesByGroupId(this.selectedGroupId);
+    },
+    // selectedTemplateId() {
+    //   this.templateList.forEach(template => {
+    //     return template.ID
+    //   })
+    // },
+    selectedTemplate() {
+      return this.$store.getters.getTemplateById(this.selectedTemplateId);
+    },
+    selectedTemplateQueue() {
+      return this.selectedTemplate ? this.selectedTemplate.Queue : '';
+    },
+    selectedTemplateBody() {
+      return this.selectedTemplate ? this.selectedTemplate.Body : '';
     }
   }
 }
@@ -275,6 +297,10 @@ const EditPage = {
           <label for="queue">Queue:</label>
           <input id="queue" v-model="queue">
         </div>
+        <div class="pure-control-group">
+          <label for="body">Message:</label>
+          <input id="body" v-model="body">
+        </div>
         <div class="pure-controls">
         	<button @click.prevent="onSave" class="pure-button pure-button-primary">Save</button>
           <button @click.prevent="onCancel" class="pure-button">Cancel</button>
@@ -294,7 +320,8 @@ const EditPage = {
         groupTitle: this.groupTitle,
         templateId: this.templateId,
         templateTitle: this.templateTitle,
-        queue: this.queue
+        queue: this.queue,
+        body: this.body
       }).then(() => {
         this.$router.push("/main");
       }).catch((err) => {
@@ -325,6 +352,7 @@ const EditPage = {
       groupTitle: '',
       templateTitle: '',
       queue: '',
+      body: '',
       EditMode: EditMode,
       isSaving: false,
       errors: []
