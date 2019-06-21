@@ -88,8 +88,12 @@ func (db *dbStorage) DeleteGroup(group *model.Group) error {
 }
 
 func (db *dbStorage) CreateTemplate(template *model.Template) error {
-	_, err := db.Exec("INSERT INTO `template`(groupid, title, queue, body) VALUES($1, $2, $3, $4)",
+	res, err := db.Exec("INSERT INTO `template`(groupid, title, queue, body) VALUES($1, $2, $3, $4)",
 		template.GroupID, template.Title, template.Queue, template.Body)
+	if err != nil {
+		return err
+	}
+	template.ID, err = res.LastInsertId()
 	if err != nil {
 		return err
 	}
