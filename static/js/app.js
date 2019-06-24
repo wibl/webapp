@@ -4,7 +4,7 @@ const EditMode = {
 
 const api = {
   async invoke(method, params) {
-    const response = await axios.post('/api', {"jsonrpc": "2.0", "method": method, "params": [params || {}], "id": 1});
+    const response = await axios.post("/api", {"jsonrpc": "2.0", "method": method, "params": [params || {}], "id": 1});
     if (response.data.error) {
       throw new Error(response.data.error);
     }
@@ -36,7 +36,9 @@ const api = {
 const store = new Vuex.Store({
   state: {
     groups: [],
-    templates: []
+    templates: [],
+    selectedGroupId: 0,
+    selectedTemplateId: 0
   },
   mutations: {
     addGroup (state, group) {
@@ -50,19 +52,36 @@ const store = new Vuex.Store({
     },
     addTemplate (state, template) {
       state.templates.push(template);
-    }
+    },
+    setSelectedGroupId (state, groupId) {
+      state.selectedGroupId = groupId;
+    },
+    setSelectedTemplateId (state, templateId) {
+      state.selectedTemplateId = templateId;
+    },
   },
   actions: {
     async signIn (context, payload) {
       await api.connectToMq(payload.url, payload.user, payload.pass);
 
       const resAllGroups = await api.getAllGroups();
-      for (group of resAllGroups.Groups) {
-        context.commit('addGroup', group);
-
-        const resAllTemplates = await api.getAllTemplates(group.ID);
-        for (template of resAllTemplates.Templates) {
-          context.commit('addTemplate', template);
+      if (resAllGroups.Groups) {
+        for (i = 0; i < resAllGroups.Groups.length; i++) {
+          let group = resAllGroups.Groups[i];
+          context.commit("addGroup", group);
+          
+          const resAllTemplates = await api.getAllTemplates(group.ID);
+          if (resAllTemplates.Templates) {
+            for (j = 0; j < resAllTemplates.Templates.length; j++) {
+              let template = resAllTemplates.Templates[j]
+              context.commit("addTemplate", template);
+              
+              if (i === 0 && j === 0) {
+                context.commit("setSelectedGroupId", group.ID);
+                context.commit("setSelectedTemplateId", template.ID);
+              }
+            }
+          }
         }
       }
     },
@@ -73,13 +92,13 @@ const store = new Vuex.Store({
         case EditMode.CREATE:
           const result = await api.createGroup(payload.groupTitle);
 
-          context.commit('addGroup', result.Group);
+          context.commit("addGroup", result.Group);
           groupId = result.Group.ID;
           break;
         case EditMode.DELETE:
           await api.deleteGroup(groupId);
 
-          context.commit('deleteGroup', groupId);
+          context.commit("deleteGroup", groupId);
           break;
         case EditMode.CHANGE:
           //TODO: Implement
@@ -90,7 +109,7 @@ const store = new Vuex.Store({
         case EditMode.CREATE:
             const result = await api.createTemplate(groupId, payload.templateTitle, payload.queue, payload.body);
 
-            context.commit('addTemplate', result.Template);
+            context.commit("addTemplate", result.Template);
         break;
         case EditMode.DELETE:
           //TODO: Implement
@@ -107,13 +126,17 @@ const store = new Vuex.Store({
   },
   getters: {
     getTemplatesByGroupId: (state) => (groupId) => {
-      return state.templates.filter(template => template.GroupID === groupId);
+      let templates = state.templates.filter(template => template.GroupID === groupId);
+      console.log("getTemplatesByGroupId groupId", groupId, "templates", templates);
+      console.log("getTemplatesByGroupId state.templates", state.templates);
+      return templates;
     },
     getTemplateById: (state) => (templateId) => {
       return state.templates.find(template => template.ID === templateId);
     },
     getGroupById: (state) => (groupId) => {
-      return state.groups.find(group => group.ID === groupId);
+      let groups = state.groups.find(group => group.ID === groupId);
+      return groups;
     }
   }
 })
@@ -150,7 +173,7 @@ const LoginPage = {
       this.isSubmitButtonEnabled = false;
       this.errors = [];
 
-      this.$store.dispatch('signIn', {url: this.url, user: this.user, pass: this.pass}).then(() => {
+      this.$store.dispatch("signIn", {url: this.url, user: this.user, pass: this.pass}).then(() => {
         this.$router.push("/main");
       }).catch((err) => {
         this.errors.push(err)
@@ -161,9 +184,9 @@ const LoginPage = {
   },
   data: function() {
     return {
-      url: 'tcp://localhost:61613',
-      user: '',
-      pass: '',
+      url: "tcp://localhost:61613",
+      user: "",
+      pass: "",
       isSubmitButtonEnabled: true,
       errors: []
     }
@@ -176,7 +199,7 @@ const MainPage = {
     	<fieldset>
         <div class="pure-control-group">
           <label for="group">Group:</label>
-          <select id="group" v-model="selectedGroupId">
+          <select id="group" :value="selectedGroupId" @input="setSelectedGroupId">
             <option v-for="group in groupList" v-bind:value="group.ID">
               {{ group.Title }}
             </option>
@@ -184,7 +207,7 @@ const MainPage = {
         </div>
         <div class="pure-control-group">
           <label for="template">Template:</label>
-          <select id="template" v-model="selectedTemplateId">
+          <select id="template" :value="selectedTemplateId" @input="setSelectedTemplateId">
             <option v-for="template in templateList" v-bind:value="template.ID">
               {{ template.Title }}
             </option>
@@ -206,71 +229,81 @@ const MainPage = {
     </form>
 	`,
   methods: {
-    onSubmit: function() {
-      this.$store.dispatch('send', {queue: this.selectedTemplateQueue, message: this.selectedTemplateBody}).then(() => {
+    onSubmit() {
+      this.$store.dispatch("send", {queue: this.selectedTemplateQueue, message: this.selectedTemplateBody}).then(() => {
         alert("Message sent")
       })
     },
-    onEdit: function() {
+    onEdit() {
       if (this.selectedGroupId === 0) {
-        this.$router.push({name: 'create_group'});
+        this.$router.push({name: "create_group"});
       } else if (this.selectedTemplateId === 0) {
         this.$router.push({
-          name: 'create_template',
+          name: "create_template",
           params: {
             groupId: this.selectedGroupId
           }
         });
       } else {
         this.$router.push({
-          name: 'edit_template',
+          name: "edit_template",
           params: {
             groupId: this.selectedGroupId,
             templateId: this.selectedTemplateId
           }
         });
       }
-    }
+    },
+    setSelectedGroupId(event) {
+      this.$store.commit("setSelectedGroupId", event.target.value);
+    },
+    setSelectedTemplateId(event) {
+      this.$store.commit("setSelectedTemplateId", event.target.value);
+    },
   },
-  data: function() {
+  data() {
     return {
-      selectedGroupId: 0,
-      selectedTemplateId: 0,
+      // firstGroup: this.$store.state.groups[0],
+      // firstTemplate: this.firstGroup ? this.$store.getters.getTemplatesByGroupId(this.firstGroup.ID)[0] : "",
+      // selectedGroupId: this.$store.state.groups[0] ? this.$store.state.groups[0].ID : 0,
+      // selectedTemplateId: selectedGroupId ? ,
     }
   },
   computed: {
+    selectedGroupId() {
+      let groupId = this.$store.state.selectedGroupId;
+      console.log("selectedGroupId", groupId)
+      return groupId;
+    },
     groupList() {
-      return this.$store.state.groups
+      let groups = this.$store.state.groups;
+      console.log("groupList", groups);
+      return groups;
     },
-    // selectedGroupId() {
-    //   this.groupList.forEach(group => {
-    //     console.log("groupId", group.ID)
-    //     return group.ID
-    //   })
-    // },
-    templateList: function() {
-      //this.selectedTemplateId = 0;
-      return this.$store.getters.getTemplatesByGroupId(this.selectedGroupId);
+    templateList() {
+      let templates = this.$store.getters.getTemplatesByGroupId(this.selectedGroupId);
+      console.log("templateList groupId", this.selectedGroupId, "templates", templates);
+      return templates;
     },
-    // selectedTemplateId() {
-    //   this.templateList.forEach(template => {
-    //     return template.ID
-    //   })
-    // },
+    selectedTemplateId() {
+      let templateId = this.$store.state.selectedTemplateId;
+      console.log("selectedTemplateId", templateId);
+      return templateId;
+    },
     selectedTemplate() {
       return this.$store.getters.getTemplateById(this.selectedTemplateId);
     },
     selectedTemplateQueue() {
-      return this.selectedTemplate ? this.selectedTemplate.Queue : '';
+      return this.selectedTemplate ? this.selectedTemplate.Queue : "";
     },
     selectedTemplateBody() {
-      return this.selectedTemplate ? this.selectedTemplate.Body : '';
+      return this.selectedTemplate ? this.selectedTemplate.Body : "";
     }
   }
 }
 
 const EditPage = {
-  props: ['groupId', 'templateId'],
+  props: ["groupId", "templateId"],
   template: `
     <form class="pure-form pure-form-aligned">
       groupEditMode=<div v-if="groupEditMode === EditMode.CREATE">CREATE</div><div v-if="groupEditMode === EditMode.CHANGE">CHANGE</div><div v-if="groupEditMode === EditMode.DELETE">DELETE</div>
@@ -313,7 +346,7 @@ const EditPage = {
     onSave: function() {
       this.isSaving = true;
 
-      this.$store.dispatch('save', {
+      this.$store.dispatch("save", {
         groupEditMode: this.groupEditMode,
         templateEditMode: this.templateEditMode,
         groupId: this.groupId,
@@ -349,10 +382,10 @@ const EditPage = {
     return {
       groupEditMode: EditMode.CREATE,
       templateEditMode: EditMode.CREATE,
-      groupTitle: '',
-      templateTitle: '',
-      queue: '',
-      body: '',
+      groupTitle: "",
+      templateTitle: "",
+      queue: "",
+      body: "",
       EditMode: EditMode,
       isSaving: false,
       errors: []
@@ -376,27 +409,27 @@ const EditPage = {
 }
 
 const routes = [{
-    path: '/',
+    path: "/",
     component: LoginPage
   },
   {
-    path: '/main',
+    path: "/main",
     component: MainPage
   },
   {
-    name: 'create_group',
-    path: '/group/create',
+    name: "create_group",
+    path: "/group/create",
     component: EditPage
   },
   {
-    name: 'create_template',
-    path: '/group/:groupId/template/create',
+    name: "create_template",
+    path: "/group/:groupId/template/create",
     component: EditPage,
     props: true
   },
   {
-    name: 'edit_template',
-    path: '/group/:groupId/template/:templateId/edit',
+    name: "edit_template",
+    path: "/group/:groupId/template/:templateId/edit",
     component: EditPage,
     props: true
   }
@@ -409,4 +442,4 @@ const router = new VueRouter({
 const app = new Vue({
   router,
   store
-}).$mount('#app')
+}).$mount("#app")
