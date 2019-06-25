@@ -4,32 +4,32 @@ const EditMode = {
 
 const api = {
   async invoke(method, params) {
-    const response = await axios.post("/api", {"jsonrpc": "2.0", "method": method, "params": [params || {}], "id": 1});
+    const response = await axios.post("/api", {"jsonrpc": "2.0", "method": method, "params": [params || {}], "id": 1})
     if (response.data.error) {
-      throw new Error(response.data.error);
+      throw new Error(response.data.error)
     }
-    return response.data.result;
+    return response.data.result
   },
   async connectToMq(url, user, pass) {
-    return this.invoke("MqService.Connect", {"URL": url, "User": user, "Pass": pass});
+    return this.invoke("MqService.Connect", {"URL": url, "User": user, "Pass": pass})
   },
   async getAllGroups() {
-    return this.invoke("GS.GetAllGroups");
+    return this.invoke("GS.GetAllGroups")
   },
   async createGroup(title) {
-    return this.invoke("GS.CreateGroup", {"Title": title});
+    return this.invoke("GS.CreateGroup", {"Title": title})
   },
   async deleteGroup(groupId) {
-    return this.invoke("GS.DeleteGroup", {"ID": groupId});
+    return this.invoke("GS.DeleteGroup", {"ID": groupId})
   },
   async getAllTemplates(groupId) {
-    return this.invoke("TS.GetAllTemplates", {"GroupID": groupId});
+    return this.invoke("TS.GetAllTemplates", {"GroupID": groupId})
   },
   async createTemplate(groupId, title, queue, body) {
-    return this.invoke("TS.CreateTemplate", {"GroupID": groupId, "Title": title, "Queue": queue, "Body": body});
+    return this.invoke("TS.CreateTemplate", {"GroupID": groupId, "Title": title, "Queue": queue, "Body": body})
   },
   async sendToMq(queue, message) {
-    return this.invoke("MqService.Send", {"Queue": queue, "Message": message});
+    return this.invoke("MqService.Send", {"Queue": queue, "Message": message})
   }
 }
 
@@ -42,43 +42,43 @@ const store = new Vuex.Store({
   },
   mutations: {
     addGroup (state, group) {
-      state.groups.push(group);
+      state.groups.push(group)
     },
     deleteGroup (state, group) {
-      state.groups.splice(state.groups.indexOf(group), 1);
+      state.groups.splice(state.groups.indexOf(group), 1)
       state.templates.filter(template => template.GroupID === group.ID).forEach(template => {
-        state.templates.splice(state.templates.indexOf(template), 1);
-      });
+        state.templates.splice(state.templates.indexOf(template), 1)
+      })
     },
     addTemplate (state, template) {
-      state.templates.push(template);
+      state.templates.push(template)
     },
     setSelectedGroupId (state, groupId) {
-      state.selectedGroupId = groupId;
+      state.selectedGroupId = groupId
     },
     setSelectedTemplateId (state, templateId) {
-      state.selectedTemplateId = templateId;
+      state.selectedTemplateId = templateId
     },
   },
   actions: {
     async signIn (context, payload) {
-      await api.connectToMq(payload.url, payload.user, payload.pass);
+      await api.connectToMq(payload.url, payload.user, payload.pass)
 
-      const resAllGroups = await api.getAllGroups();
+      const resAllGroups = await api.getAllGroups()
       if (resAllGroups.Groups) {
         for (i = 0; i < resAllGroups.Groups.length; i++) {
-          let group = resAllGroups.Groups[i];
-          context.commit("addGroup", group);
+          let group = resAllGroups.Groups[i]
+          context.commit("addGroup", group)
           
-          const resAllTemplates = await api.getAllTemplates(group.ID);
+          const resAllTemplates = await api.getAllTemplates(group.ID)
           if (resAllTemplates.Templates) {
             for (j = 0; j < resAllTemplates.Templates.length; j++) {
               let template = resAllTemplates.Templates[j]
-              context.commit("addTemplate", template);
+              context.commit("addTemplate", template)
               
               if (i === 0 && j === 0) {
-                context.commit("setSelectedGroupId", group.ID);
-                context.commit("setSelectedTemplateId", template.ID);
+                context.commit("setSelectedGroupId", group.ID)
+                context.commit("setSelectedTemplateId", template.ID)
               }
             }
           }
@@ -86,57 +86,55 @@ const store = new Vuex.Store({
       }
     },
     async save (context, payload) {
-      let groupId = payload.groupId;
+      let groupId = payload.groupId
 
       switch (payload.groupEditMode) {
         case EditMode.CREATE:
-          const result = await api.createGroup(payload.groupTitle);
+          const result = await api.createGroup(payload.groupTitle)
 
-          context.commit("addGroup", result.Group);
-          groupId = result.Group.ID;
-          break;
+          context.commit("addGroup", result.Group)
+          groupId = result.Group.ID
+          break
         case EditMode.DELETE:
-          await api.deleteGroup(groupId);
+          await api.deleteGroup(groupId)
 
-          context.commit("deleteGroup", groupId);
-          break;
+          context.commit("deleteGroup", groupId)
+          break
         case EditMode.CHANGE:
           //TODO: Implement
-          break;
+          break
       }
 
       switch (payload.templateEditMode) {
         case EditMode.CREATE:
-            const result = await api.createTemplate(groupId, payload.templateTitle, payload.queue, payload.body);
+            const result = await api.createTemplate(groupId, payload.templateTitle, payload.queue, payload.body)
 
-            context.commit("addTemplate", result.Template);
-        break;
+            context.commit("addTemplate", result.Template)
+        break
         case EditMode.DELETE:
           //TODO: Implement
-          break;
+          break
         case EditMode.CHANGE:
           //TODO: Implement
-          break;
+          break
       }
 
     },
     async send (context, payload) {
-      await api.sendToMq(payload.queue, payload.message);
+      await api.sendToMq(payload.queue, payload.message)
     }
   },
   getters: {
     getTemplatesByGroupId: (state) => (groupId) => {
-      let templates = state.templates.filter(template => template.GroupID === groupId);
-      console.log("getTemplatesByGroupId groupId", groupId, "templates", templates);
-      console.log("getTemplatesByGroupId state.templates", state.templates);
-      return templates;
+      let templates = state.templates.filter(template => template.GroupID === groupId)
+      return templates
     },
     getTemplateById: (state) => (templateId) => {
-      return state.templates.find(template => template.ID === templateId);
+      return state.templates.find(template => template.ID === templateId)
     },
     getGroupById: (state) => (groupId) => {
-      let groups = state.groups.find(group => group.ID === groupId);
-      return groups;
+      let groups = state.groups.find(group => group.ID === groupId)
+      return groups
     }
   }
 })
@@ -170,15 +168,15 @@ const LoginPage = {
 	`,
   methods: {
     onSubmit: function() {
-      this.isSubmitButtonEnabled = false;
-      this.errors = [];
+      this.isSubmitButtonEnabled = false
+      this.errors = []
 
       this.$store.dispatch("signIn", {url: this.url, user: this.user, pass: this.pass}).then(() => {
-        this.$router.push("/main");
+        this.$router.push("/main")
       }).catch((err) => {
         this.errors.push(err)
-        this.isSubmitButtonEnabled = true;
-      });
+        this.isSubmitButtonEnabled = true
+      })
       
     }
   },
@@ -199,7 +197,7 @@ const MainPage = {
     	<fieldset>
         <div class="pure-control-group">
           <label for="group">Group:</label>
-          <select id="group" :value="selectedGroupId" @input="setSelectedGroupId">
+          <select id="group" v-model="selectedGroupId">
             <option v-for="group in groupList" v-bind:value="group.ID">
               {{ group.Title }}
             </option>
@@ -207,7 +205,7 @@ const MainPage = {
         </div>
         <div class="pure-control-group">
           <label for="template">Template:</label>
-          <select id="template" :value="selectedTemplateId" @input="setSelectedTemplateId">
+          <select id="template" v-model="selectedTemplateId">
             <option v-for="template in templateList" v-bind:value="template.ID">
               {{ template.Title }}
             </option>
@@ -220,7 +218,7 @@ const MainPage = {
         </div>
         <div class="pure-control-group">
           <label for="message">Message:</label>
-          <textarea id="message" :value="selectedTemplateBody" style="vertical-align: top;" />
+          <textarea id="message" :value="selectedTemplateBody" style="vertical-align: top" />
         </div>
         <div class="pure-controls">
           <button type="submit" class="pure-button pure-button-primary">Send</button>
@@ -236,14 +234,14 @@ const MainPage = {
     },
     onEdit() {
       if (this.selectedGroupId === 0) {
-        this.$router.push({name: "create_group"});
+        this.$router.push({name: "create_group"})
       } else if (this.selectedTemplateId === 0) {
         this.$router.push({
           name: "create_template",
           params: {
             groupId: this.selectedGroupId
           }
-        });
+        })
       } else {
         this.$router.push({
           name: "edit_template",
@@ -251,53 +249,45 @@ const MainPage = {
             groupId: this.selectedGroupId,
             templateId: this.selectedTemplateId
           }
-        });
+        })
       }
-    },
-    setSelectedGroupId(event) {
-      this.$store.commit("setSelectedGroupId", event.target.value);
-    },
-    setSelectedTemplateId(event) {
-      this.$store.commit("setSelectedTemplateId", event.target.value);
-    },
-  },
-  data() {
-    return {
-      // firstGroup: this.$store.state.groups[0],
-      // firstTemplate: this.firstGroup ? this.$store.getters.getTemplatesByGroupId(this.firstGroup.ID)[0] : "",
-      // selectedGroupId: this.$store.state.groups[0] ? this.$store.state.groups[0].ID : 0,
-      // selectedTemplateId: selectedGroupId ? ,
     }
   },
   computed: {
-    selectedGroupId() {
-      let groupId = this.$store.state.selectedGroupId;
-      console.log("selectedGroupId", groupId)
-      return groupId;
-    },
     groupList() {
-      let groups = this.$store.state.groups;
-      console.log("groupList", groups);
-      return groups;
+      return this.$store.state.groups
+    },
+    selectedGroupId: {
+      get() {
+        return this.$store.state.selectedGroupId
+      },
+      set(value) {
+        this.$store.commit("setSelectedGroupId", value)
+      }
     },
     templateList() {
-      let templates = this.$store.getters.getTemplatesByGroupId(this.selectedGroupId);
-      console.log("templateList groupId", this.selectedGroupId, "templates", templates);
-      return templates;
+      let templates = this.$store.getters.getTemplatesByGroupId(this.selectedGroupId)
+      if (templates && templates.length) {
+        this.$store.commit("setSelectedTemplateId", templates[0].ID)
+      }
+      return templates
     },
-    selectedTemplateId() {
-      let templateId = this.$store.state.selectedTemplateId;
-      console.log("selectedTemplateId", templateId);
-      return templateId;
+    selectedTemplateId: {
+      get() {
+        return this.$store.state.selectedTemplateId
+      },
+      set(value) {
+        this.$store.commit("setSelectedTemplateId", value)
+      }
     },
     selectedTemplate() {
-      return this.$store.getters.getTemplateById(this.selectedTemplateId);
+      return this.$store.getters.getTemplateById(this.selectedTemplateId)
     },
     selectedTemplateQueue() {
-      return this.selectedTemplate ? this.selectedTemplate.Queue : "";
+      return this.selectedTemplate ? this.selectedTemplate.Queue : ""
     },
     selectedTemplateBody() {
-      return this.selectedTemplate ? this.selectedTemplate.Body : "";
+      return this.selectedTemplate ? this.selectedTemplate.Body : ""
     }
   }
 }
@@ -344,7 +334,7 @@ const EditPage = {
 	`,
   methods: {
     onSave: function() {
-      this.isSaving = true;
+      this.isSaving = true
 
       this.$store.dispatch("save", {
         groupEditMode: this.groupEditMode,
@@ -356,26 +346,26 @@ const EditPage = {
         queue: this.queue,
         body: this.body
       }).then(() => {
-        this.$router.push("/main");
+        this.$router.push("/main")
       }).catch((err) => {
-        this.errors.push(err);
-        this.isSaving = false;
-      });
+        this.errors.push(err)
+        this.isSaving = false
+      })
     },
     onCancel: function() {
-      this.$router.push("/main");
+      this.$router.push("/main")
     },
     onGroupAdd: function() {
-      this.groupEditMode = EditMode.CREATE;
+      this.groupEditMode = EditMode.CREATE
     },
     onGroupDelete: function() {
-      this.groupEditMode = EditMode.DELETE;
+      this.groupEditMode = EditMode.DELETE
     },
     onTemplateAdd: function() {
-      this.templateEditMode = EditMode.CREATE;
+      this.templateEditMode = EditMode.CREATE
     },
     onTemplateDelete: function() {
-      this.templateEditMode = EditMode.DELETE;
+      this.templateEditMode = EditMode.DELETE
     },
   },
   data: function() {
@@ -395,13 +385,13 @@ const EditPage = {
     if (this.groupId) {
       this.groupEditMode = EditMode.CHANGE
 
-      const editableGroup = this.$store.getters.getGroupById(this.groupId);
+      const editableGroup = this.$store.getters.getGroupById(this.groupId)
       this.groupTitle = editableGroup.Title
     }
     if (this.templateId) {
       this.templateEditMode = EditMode.CHANGE
 
-      const editableTemplate = this.$store.getters.getTemplateById(this.templateId);
+      const editableTemplate = this.$store.getters.getTemplateById(this.templateId)
       this.templateTitle = editableTemplate.Title
       this.queue = editableTemplate.Queue
     }
