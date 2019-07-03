@@ -28,6 +28,9 @@ const api = {
   async createTemplate(groupId, title, queue, body) {
     return this.invoke("TS.CreateTemplate", {"GroupID": groupId, "Title": title, "Queue": queue, "Body": body})
   },
+  async deleteTemplate(templateId) {
+    return this.invoke("TS.DeleteTemplate", {"ID": templateId})
+  },
   async sendToMq(queue, message) {
     return this.invoke("MqService.Send", {"Queue": queue, "Message": message})
   }
@@ -87,13 +90,14 @@ const store = new Vuex.Store({
     },
     async save (context, payload) {
       let groupId = payload.groupId
-
+      
       switch (payload.groupEditMode) {
         case EditMode.CREATE:
           const result = await api.createGroup(payload.groupTitle)
 
           context.commit("addGroup", result.Group)
           groupId = result.Group.ID
+          context.commit("setSelectedGroupId", groupId)
           break
         case EditMode.DELETE:
           await api.deleteGroup(groupId)
@@ -107,10 +111,11 @@ const store = new Vuex.Store({
 
       switch (payload.templateEditMode) {
         case EditMode.CREATE:
-            const result = await api.createTemplate(groupId, payload.templateTitle, payload.queue, payload.body)
+          const result = await api.createTemplate(groupId, payload.templateTitle, payload.queue, payload.body)
 
-            context.commit("addTemplate", result.Template)
-        break
+          context.commit("addTemplate", result.Template)
+          context.commit("setSelectedTemplateId", result.Template.ID)
+          break
         case EditMode.DELETE:
           //TODO: Implement
           break
@@ -118,7 +123,6 @@ const store = new Vuex.Store({
           //TODO: Implement
           break
       }
-
     },
     async send (context, payload) {
       await api.sendToMq(payload.queue, payload.message)
@@ -177,14 +181,13 @@ const LoginPage = {
         this.errors.push(err)
         this.isSubmitButtonEnabled = true
       })
-      
     }
   },
   data: function() {
     return {
       url: "tcp://localhost:61613",
-      user: "",
-      pass: "",
+      user: "admin",
+      pass: "admin",
       isSubmitButtonEnabled: true,
       errors: []
     }
@@ -255,7 +258,8 @@ const MainPage = {
   },
   computed: {
     groupList() {
-      return this.$store.state.groups
+      let groups = this.$store.state.groups
+      return groups
     },
     selectedGroupId: {
       get() {
@@ -267,14 +271,18 @@ const MainPage = {
     },
     templateList() {
       let templates = this.$store.getters.getTemplatesByGroupId(this.selectedGroupId)
-      if (templates && templates.length) {
-        this.$store.commit("setSelectedTemplateId", templates[0].ID)
+      let selectInTemplates = templates.find(template => template.ID === this.selectedTemplateId)
+      
+      if (templates && templates.length && selectInTemplates === undefined) {
+        let firstTemplateId = templates[0].ID
+        this.$store.commit("setSelectedTemplateId", firstTemplateId)
       }
       return templates
     },
     selectedTemplateId: {
       get() {
-        return this.$store.state.selectedTemplateId
+        let templateId = this.$store.state.selectedTemplateId
+        return templateId
       },
       set(value) {
         this.$store.commit("setSelectedTemplateId", value)
@@ -333,7 +341,7 @@ const EditPage = {
     </form>
 	`,
   methods: {
-    onSave: function() {
+    onSave() {
       this.isSaving = true
 
       this.$store.dispatch("save", {
@@ -352,23 +360,23 @@ const EditPage = {
         this.isSaving = false
       })
     },
-    onCancel: function() {
+    onCancel() {
       this.$router.push("/main")
     },
-    onGroupAdd: function() {
+    onGroupAdd() {
       this.groupEditMode = EditMode.CREATE
     },
-    onGroupDelete: function() {
+    onGroupDelete() {
       this.groupEditMode = EditMode.DELETE
     },
-    onTemplateAdd: function() {
+    onTemplateAdd() {
       this.templateEditMode = EditMode.CREATE
     },
-    onTemplateDelete: function() {
+    onTemplateDelete() {
       this.templateEditMode = EditMode.DELETE
     },
   },
-  data: function() {
+  data() {
     return {
       groupEditMode: EditMode.CREATE,
       templateEditMode: EditMode.CREATE,
@@ -381,7 +389,7 @@ const EditPage = {
       errors: []
     }
   },
-  created: function() {
+  created() {
     if (this.groupId) {
       this.groupEditMode = EditMode.CHANGE
 
