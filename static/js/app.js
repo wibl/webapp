@@ -19,6 +19,9 @@ const api = {
   async createGroup(title) {
     return this.invoke("GS.CreateGroup", {"Title": title})
   },
+  async updateGroup(groupId, title) {
+    return this.invoke("GS.UpdateGroup", {"ID": groupId, "Title": title})
+  },
   async deleteGroup(groupId) {
     return this.invoke("GS.DeleteGroup", {"ID": groupId})
   },
@@ -47,14 +50,31 @@ const store = new Vuex.Store({
     addGroup (state, group) {
       state.groups.push(group)
     },
-    deleteGroup (state, group) {
+    updateAllGroups (state, groups) {
+      state.groups = groups
+    },
+    deleteGroup (state, groupId) {
+      let group = state.groups.find(group => group.ID === groupId)
+      
       state.groups.splice(state.groups.indexOf(group), 1)
-      state.templates.filter(template => template.GroupID === group.ID).forEach(template => {
+      state.templates.filter(template => template.GroupID === groupId).forEach(template => {
         state.templates.splice(state.templates.indexOf(template), 1)
       })
+
+      let firstGroup = state.groups[0]
+      state.selectedGroupId = firstGroup ? firstGroup.ID : 0
+      selectedTemplates = state.templates.filter(template => template.GroupID === state.selectedGroupId)
+      state.selectedTemplateId = selectedTemplates.length > 0  ? selectedTemplates[0].ID : 0
     },
     addTemplate (state, template) {
       state.templates.push(template)
+    },
+    deleteTemplate (state, templateId) {
+      let template = state.templates.find(template => template.ID === templateId)
+      state.templates.splice(state.templates.indexOf(template), 1)
+      
+      selectedTemplates = state.templates.filter(template => template.GroupID === state.selectedGroupId)
+      state.selectedTemplateId = selectedTemplates.length > 0  ? selectedTemplates[0].ID : 0
     },
     setSelectedGroupId (state, groupId) {
       state.selectedGroupId = groupId
@@ -73,14 +93,17 @@ const store = new Vuex.Store({
           let group = resAllGroups.Groups[i]
           context.commit("addGroup", group)
           
+          if (i === 0) {
+            context.commit("setSelectedGroupId", group.ID)
+          }
+
           const resAllTemplates = await api.getAllTemplates(group.ID)
           if (resAllTemplates.Templates) {
             for (j = 0; j < resAllTemplates.Templates.length; j++) {
               let template = resAllTemplates.Templates[j]
               context.commit("addTemplate", template)
               
-              if (i === 0 && j === 0) {
-                context.commit("setSelectedGroupId", group.ID)
+              if (j === 0) {
                 context.commit("setSelectedTemplateId", template.ID)
               }
             }
@@ -90,34 +113,36 @@ const store = new Vuex.Store({
     },
     async save (context, payload) {
       let groupId = payload.groupId
+      let groupTitle = payload.groupTitle
+      let templateId = payload.templateId
+      let result
       
       switch (payload.groupEditMode) {
         case EditMode.CREATE:
-          const result = await api.createGroup(payload.groupTitle)
-
+          result = await api.createGroup(groupTitle)
           context.commit("addGroup", result.Group)
           groupId = result.Group.ID
           context.commit("setSelectedGroupId", groupId)
           break
         case EditMode.DELETE:
           await api.deleteGroup(groupId)
-
           context.commit("deleteGroup", groupId)
           break
         case EditMode.CHANGE:
-          //TODO: Implement
+          result = await api.updateGroup(groupId, groupTitle)
+          context.commit("updateAllGroups", result.Groups)
           break
       }
 
       switch (payload.templateEditMode) {
         case EditMode.CREATE:
-          const result = await api.createTemplate(groupId, payload.templateTitle, payload.queue, payload.body)
-
+          result = await api.createTemplate(groupId, payload.templateTitle, payload.queue, payload.body)
           context.commit("addTemplate", result.Template)
           context.commit("setSelectedTemplateId", result.Template.ID)
           break
         case EditMode.DELETE:
-          //TODO: Implement
+          await api.deleteTemplate(templateId)
+          context.commit("deleteTemplate", templateId)
           break
         case EditMode.CHANGE:
           //TODO: Implement
@@ -137,8 +162,8 @@ const store = new Vuex.Store({
       return state.templates.find(template => template.ID === templateId)
     },
     getGroupById: (state) => (groupId) => {
-      let groups = state.groups.find(group => group.ID === groupId)
-      return groups
+      let group = state.groups.find(group => group.ID === groupId)
+      return group
     }
   }
 })
@@ -402,6 +427,7 @@ const EditPage = {
       const editableTemplate = this.$store.getters.getTemplateById(this.templateId)
       this.templateTitle = editableTemplate.Title
       this.queue = editableTemplate.Queue
+      this.body = editableTemplate.Body
     }
   }
 }
