@@ -34,6 +34,9 @@ const api = {
   async deleteTemplate(templateId) {
     return this.invoke("TS.DeleteTemplate", {"ID": templateId})
   },
+  async updateTemplate(templateId, title, queue, body) {
+    return this.invoke("TS.UpdateTemplate", {"ID": templateId, "Title": title, "Queue": queue, "Body": body})
+  },
   async sendToMq(queue, message) {
     return this.invoke("MqService.Send", {"Queue": queue, "Message": message})
   }
@@ -115,6 +118,9 @@ const store = new Vuex.Store({
       let groupId = payload.groupId
       let groupTitle = payload.groupTitle
       let templateId = payload.templateId
+      let templateTitle = payload.templateTitle
+      let queue = payload.queue
+      let body = payload.body
       let result
       
       switch (payload.groupEditMode) {
@@ -136,7 +142,7 @@ const store = new Vuex.Store({
 
       switch (payload.templateEditMode) {
         case EditMode.CREATE:
-          result = await api.createTemplate(groupId, payload.templateTitle, payload.queue, payload.body)
+          result = await api.createTemplate(groupId, templateTitle, queue, body)
           context.commit("addTemplate", result.Template)
           context.commit("setSelectedTemplateId", result.Template.ID)
           break
@@ -145,7 +151,10 @@ const store = new Vuex.Store({
           context.commit("deleteTemplate", templateId)
           break
         case EditMode.CHANGE:
-          //TODO: Implement
+          result = await api.updateTemplate(templateId, templateTitle, queue, body)
+          context.commit("deleteTemplate", templateId)
+          context.commit("addTemplate", result.Template)
+          console.log("ChangeTemplate.result.Template - ", result.Template)
           break
       }
     },
@@ -249,7 +258,9 @@ const MainPage = {
           <textarea id="message" :value="selectedTemplateBody" style="vertical-align: top" />
         </div>
         <div class="pure-controls">
-          <button type="submit" class="pure-button pure-button-primary">Send</button>
+          <button type="submit" class="pure-button pure-button-primary" v-bind:disabled="!selectedTemplateQueue || !selectedTemplateBody">
+            Send
+          </button>
         </div>
       </fieldset>
     </form>

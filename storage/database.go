@@ -133,7 +133,9 @@ func (db *dbStorage) GetTemplate(id int64) (*model.Template, error) {
 }
 
 func (db *dbStorage) UpdateTemplate(template *model.Template) error {
-	_, err := db.Exec("UPDATE `template` SET title = $1, queue = $2 WHERE id = $3", template.Title, template.Queue, template.ID)
+	_, err := db.Exec(
+		"UPDATE `template` SET title = $1, queue = $2, body = $3 WHERE id = $4",
+		template.Title, template.Queue, template.Body, template.ID)
 	if err != nil {
 		return err
 	}

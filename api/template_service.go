@@ -28,14 +28,14 @@ type TemplateReply struct {
 	Templates []*model.Template
 }
 
-// CreateTemplateReply contains info for replay
-type CreateTemplateReply struct {
+// UpdateTemplateReply contains info for replay
+type UpdateTemplateReply struct {
 	Message  string
 	Template *model.Template
 }
 
 // CreateTemplate allows to create a template
-func (gs *TemplateService) CreateTemplate(rq *http.Request, args *TemplateArgs, reply *CreateTemplateReply) error {
+func (gs *TemplateService) CreateTemplate(rq *http.Request, args *TemplateArgs, reply *UpdateTemplateReply) error {
 	newTmp := &model.Template{GroupID: args.GroupID, Title: args.Title, Queue: args.Queue, Body: args.Body}
 	err := gs.Stor.CreateTemplate(newTmp)
 	if err != nil {
@@ -62,18 +62,20 @@ func (gs *TemplateService) GetAllTemplates(rq *http.Request, args *TemplateArgs,
 }
 
 // UpdateTemplate updates the template title and queue
-func (gs *TemplateService) UpdateTemplate(rq *http.Request, args *TemplateArgs, reply *TemplateReply) error {
+func (gs *TemplateService) UpdateTemplate(rq *http.Request, args *TemplateArgs, reply *UpdateTemplateReply) error {
 	tmp, err := gs.Stor.GetTemplate(args.ID)
 	if err != nil {
 		return err
 	}
 	tmp.Title = args.Title
 	tmp.Queue = args.Queue
+	tmp.Body = args.Body
 	err = gs.Stor.UpdateTemplate(tmp)
 	if err != nil {
 		return err
 	}
 	reply.Message = "Template was successfully update"
+	reply.Template = tmp
 	return nil
 }
 
